@@ -8,7 +8,7 @@ import (
 )
 
 func TestRingBuffer_interface(t *testing.T) {
-	rb := New(1)
+	rb := New(WithSize(1))
 	var _ io.Writer = rb
 	var _ io.Reader = rb
 	// var _ io.StringWriter = rb
@@ -17,7 +17,7 @@ func TestRingBuffer_interface(t *testing.T) {
 }
 
 func TestRingBuffer_Write(t *testing.T) {
-	rb := New(64)
+	rb := New(WithSize(64))
 
 	// check empty or full
 	if !rb.IsEmpty() {
@@ -89,7 +89,7 @@ func TestRingBuffer_Write(t *testing.T) {
 	}
 
 	// write more 4 bytes, should reject
-	n, err = rb.Write(bytes.Repeat([]byte("abcd"), 1))
+	n, err = rb.Write([]byte("abcd"))
 	if err == nil {
 		t.Fatalf("expect an error but got nil. n=%d, r.w=%d, r.r=%d", n, rb.w, rb.r)
 	}
@@ -118,7 +118,7 @@ func TestRingBuffer_Write(t *testing.T) {
 	rb.Reset()
 	n, err = rb.Write(bytes.Repeat([]byte("abcd"), 20))
 	if err == nil {
-		t.Fatalf("expect ErrTooManyDataToWrite but got nil")
+		t.Fatalf("expect ErrIsFull but got nil")
 	}
 	if n != 64 {
 		t.Fatalf("expect write 64 bytes but got %d", n)
@@ -194,13 +194,13 @@ func TestRingBuffer_Write(t *testing.T) {
 	if rb.Free() != 0 {
 		t.Fatalf("expect free 0 bytes but got %d. r.w=%d, r.r=%d", rb.Free(), rb.w, rb.r)
 	}
-	if !bytes.Equal(rb.Bytes(), bytes.Repeat([]byte("1234"), 4)) {
-		t.Fatalf("expect 16 abcd and 4 1234 but got %s. r.w=%d, r.r=%d", rb.Bytes(), rb.w, rb.r)
+	if !bytes.Equal(rb.Bytes(), append(bytes.Repeat([]byte("abcd"), 12), bytes.Repeat([]byte("1234"), 4)...)) {
+		t.Fatalf("expect 12 abcd and 4 1234 but got %s. r.w=%d, r.r=%d", rb.Bytes(), rb.w, rb.r)
 	}
 }
 
 func TestRingBuffer_Read(t *testing.T) {
-	rb := New(64)
+	rb := New(WithSize(64))
 
 	// check empty or full
 	if !rb.IsEmpty() {
@@ -222,8 +222,8 @@ func TestRingBuffer_Read(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expect an error but got nil")
 	}
-	if err != ErrIsEmpty {
-		t.Fatalf("expect ErrIsEmpty but got nil")
+	if err != io.EOF {
+		t.Fatalf("expect io.EOF but got nil")
 	}
 	if n != 0 {
 		t.Fatalf("expect read 0 bytes but got %d", n)
@@ -279,7 +279,7 @@ func TestRingBuffer_Read(t *testing.T) {
 }
 
 func TestRingBuffer_ByteInterface(t *testing.T) {
-	rb := New(2)
+	rb := New(WithSize(2))
 
 	// write one
 	err := rb.WriteByte('a')
@@ -397,7 +397,7 @@ func TestRingBuffer_ByteInterface(t *testing.T) {
 	// read three, error
 	b, err = rb.ReadByte()
 	if err == nil {
-		t.Fatalf("expect ErrIsEmpty but got nil")
+		t.Fatalf("expect io.EOF but got nil")
 	}
 	if rb.Length() != 0 {
 		t.Fatalf("expect len 0 byte but got %d. r.w=%d, r.r=%d", rb.Length(), rb.w, rb.r)
@@ -415,7 +415,7 @@ func TestRingBuffer_ByteInterface(t *testing.T) {
 }
 
 func TestRingBuffer_ReadFrom(t *testing.T) {
-	rb := New(64)
+	rb := New(WithSize(64))
 
 	// write 4 * 4 = 16 bytes
 	n, err := rb.ReadFrom(bytes.NewReader(bytes.Repeat([]byte("abcd"), 4)))
